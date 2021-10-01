@@ -1,6 +1,6 @@
 mod util;
 extern crate cooperative_pathfinding;
-use cooperative_pathfinding::{Agent,Node};
+use cooperative_pathfinding::{WorldMap, Agent, Node};
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -16,30 +16,31 @@ use tui::widgets::canvas::{Canvas, Map, MapResolution, Line, Points, Rectangle};
 use tui::style::Color;
 
 
-static PATHFINDING_MAP_DATA: [usize; 400] = [
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, usize::MAX, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+static PATHFINDING_MAP_DATA: [u32; 400] = [
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, usize::MAX, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, usize::MAX, 1, usize::MAX, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, usize::MAX, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, usize::MAX, usize::MAX, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, usize::MAX, 1, 1, 1, usize::MAX, usize::MAX,
-    1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, u32::MAX, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, u32::MAX, u32::MAX,
+    1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,  1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, usize::MAX, 1, 1, 1, 1, 1, 1, 1, 1
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,  1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1
 ];
 
 struct App {
+
 }
 
 impl App {
@@ -51,15 +52,18 @@ impl App {
 
 fn main() -> Result<(), Box<dyn Error>>{
 
+    let world_map = WorldMap::new(Vec::from(PATHFINDING_MAP_DATA),20, 20);
+
+
     let space_time_map: Vec<Vec<HashMap<u32, u32>>> = Vec::new();
 
     let mut agent_1 = Agent::new("a");
     agent_1.set_start(Node {x: 10, y: 14, g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {x: 10, y: 17, g_score: usize::MAX, f_score: 0 });
+    agent_1.set_goal(Node {x: 10, y: 17, g_score: u32::MAX, f_score: 0 });
 
     let mut agent_2 = Agent::new("b");
     agent_2.set_start(Node {x: 5, y: 8, g_score: 0, f_score: 0 });
-    agent_2.set_goal(Node {x: 10, y: 11, g_score: usize::MAX, f_score: 0 });
+    agent_2.set_goal(Node {x: 10, y: 11, g_score: u32::MAX, f_score: 0 });
 
 
     // Terminal initialization
@@ -119,7 +123,7 @@ fn main() -> Result<(), Box<dyn Error>>{
                     for y in 0..20 {
                         for x in 0..20 {
 
-                            if PATHFINDING_MAP_DATA[(y * 20) + x] == usize::MAX {
+                            if PATHFINDING_MAP_DATA[(y * 20) + x] == u32::MAX {
 
                                 /*ctx.draw(&Points{
                                     coords: &[((x * 7 + 3) as f64, (y * 7 + 3) as f64)],
