@@ -58,12 +58,12 @@ fn main() -> Result<(), Box<dyn Error>>{
     let space_time_map: Vec<Vec<HashMap<u32, u32>>> = Vec::new();
 
     let mut agent_1 = Agent::new("a");
-    agent_1.set_start(Node {x: 10, y: 14, g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {x: 10, y: 17, g_score: u32::MAX, f_score: 0 });
+    agent_1.set_start(Node {pos: (10, 14), g_score: 0, f_score: 0 });
+    agent_1.set_goal(Node {pos: ( 10, 17), g_score: u32::MAX, f_score: 0 });
 
     let mut agent_2 = Agent::new("b");
-    agent_2.set_start(Node {x: 5, y: 8, g_score: 0, f_score: 0 });
-    agent_2.set_goal(Node {x: 10, y: 11, g_score: u32::MAX, f_score: 0 });
+    agent_2.set_start(Node {pos: (5, 8), g_score: 0, f_score: 0 });
+    agent_2.set_goal(Node{ pos: (10, 11), g_score: u32::MAX, f_score: 0 });
 
 
     // Terminal initialization
