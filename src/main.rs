@@ -54,7 +54,6 @@ fn main() -> Result<(), Box<dyn Error>>{
 
     let world_map = WorldMap::new(Vec::from(PATHFINDING_MAP_DATA),20, 20);
 
-
     let space_time_map: Vec<Vec<HashMap<u32, u32>>> = Vec::new();
 
     let mut agent_1 = Agent::new("a");
@@ -64,6 +63,8 @@ fn main() -> Result<(), Box<dyn Error>>{
     let mut agent_2 = Agent::new("b");
     agent_2.set_start(Node {pos: (5, 8), g_score: 0, f_score: 0 });
     agent_2.set_goal(Node{ pos: (10, 11), g_score: u32::MAX, f_score: 0 });
+
+    agent_1.get_true_distance_heuristic(world_map, Node{ pos: (13, 2), g_score: u32::MAX, f_score: 0 });
 
 
     // Terminal initialization
