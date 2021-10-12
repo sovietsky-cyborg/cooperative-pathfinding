@@ -39,6 +39,25 @@ static PATHFINDING_MAP_DATA: [u32; 400] = [
     1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1
 ];
 
+static PATHFINDING_MAP_DATA_2: [u32; 225] = [
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+
+];
+
 struct App {
 
 }
@@ -57,8 +76,8 @@ fn main() -> Result<(), Box<dyn Error>>{
     let space_time_map: Vec<Vec<HashMap<u32, u32>>> = Vec::new();
 
     let mut agent_1 = Agent::new("a");
-    agent_1.set_start(Node {pos: (2, 2), g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {pos: (4, 4), g_score: 0, f_score: 0 });
+    agent_1.set_start(Node {pos: (0, 0), g_score: 0, f_score: 0 });
+    agent_1.set_goal(Node {pos: (7, 7), g_score: 0, f_score: 0 });
 
     let mut agent_2 = Agent::new("b");
     agent_2.set_start(Node {pos: (5, 8), g_score: 0, f_score: 0 });

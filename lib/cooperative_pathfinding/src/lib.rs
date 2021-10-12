@@ -36,17 +36,14 @@ impl WorldMap {
         if x < self.width - 1 && y < self.height - 1{
             neighbors.push(Node::from((x + 1, y + 1, u32::MAX)));
         }
-
         // SW
         if x > 0 && y > 0 {
             neighbors.push(Node::from((x - 1, y - 1, u32::MAX)));
         }
-
         // NW
         if x > 0 && y < self.height - 1{
             neighbors.push(Node::from((x - 1, y + 1, u32::MAX)));
         }
-
         // SE
         if x < self.width - 1 && y > 0{
             neighbors.push(Node::from((x + 1, y - 1, u32::MAX)));
@@ -63,7 +60,7 @@ impl WorldMap {
         if y < self.height - 1 {
             neighbors.push(Node::from((x, y + 1, u32::MAX)));
         }
-        // W
+        // S
         if y > 0 {
             neighbors.push(Node::from((x, y - 1, u32::MAX)));
         }
@@ -122,23 +119,13 @@ impl From<(u32, u32, u32)> for Node {
     }
 }
 
-// impl Node {
-//     pub fn is_obstacle(&self) -> bool {
-//         if self.g_score >= u32::MAX{
-//             return true;
-//         }else{
-//             return false;
-//         }
-//     }
-// }
-
 #[derive(Default)]
 pub struct Agent {
 
     pub came_from: HashMap<Node, Node>,
-    pub g_score: HashMap<Node, u32>,
-    pub f_score: HashMap<Node, u32>,
+    pub nodes: HashMap<(u32, u32), Node>,
     pub closed_set: HashMap<Node, u32>,
+
     // This priority queue will be ordered by the reverse of the highest cost
     // so, the priority of nodes exploration will depend of their accessibility cost
     pub open_set: PriorityQueue<Node, Reverse<u32>>,
@@ -189,15 +176,18 @@ impl Agent {
 
         for y in 0..map.height - 1 {
             for x in 0..map.width - 1 {
-                let score = match self.f_score.get(&Node::from((x, y, 0))) {
-                    Some(el) => {
-                        if *el == u32::MAX {
-                            print!("inf",);
+                let score = match self.nodes.get(&(x, y)) {
+                    Some(node) => {
+
+                        let score = node.f_score;
+
+                        if score == u32::MAX {
+                            print!("  #");
                         }else{
-                            if *el < 10 {
-                                print!("  {:?}", el);
+                            if score < 10 {
+                                print!("  {:?}", score);
                             } else {
-                                print!(" {:?}", el);
+                                print!(" {:?}", score);
                             }
                         }
                     }
@@ -205,7 +195,7 @@ impl Agent {
 
                         let el = map.get_cost(Node::from((x, y, 0)));
                         if el == u32::MAX {
-                            print!("inf",);
+                            print!("  #",);
                         }else{
                             if el < 10 {
                                 print!("  {:?}", el);
@@ -226,35 +216,34 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
     let start = agent.goal;
     let goal =  agent.start;
 
-    // let is_goal_found = false;
     if map.is_obstacle(goal) {
         return false;
     }
 
-    agent.g_score.insert(start, 0);
-    agent.f_score.insert(start, 0);
+    agent.nodes.insert(start.pos, start);
     agent.open_set.push(start, Reverse(0));
 
     let mut count = 0;
 
     while let Some((current, Reverse(_current_cost))) = agent.open_set.pop() {
 
-        if current.pos == goal.pos {
-            return true;
-        }
-
         agent.closed_set.insert(current, current.f_score);
+
+        println!("current {:?}, g_score {:?} ", current.pos, current.g_score);
 
         for mut next in map.get_neighbors(current) {
             match agent.came_from.get(&next) {
                 None => {
                     agent.came_from.insert(current, next);
-                    agent.g_score.insert(next, u32::MAX);
-                    agent.f_score.insert(next, u32::MAX);
+
+                    next.g_score = u32::MAX;
+                    next.f_score = u32::MAX;
+                    agent.nodes.insert(next.pos, next);
 
                 }
                 Some(_) => {}
             }
+            println!("next {:?}, g_score {:?}", next.pos,  next.g_score);
 
             if !map.is_obstacle(next) {
 
@@ -266,17 +255,16 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
                     if current.pos.0 != next.pos.0 && current.pos.1 != next.pos.1 {
                         current.g_score + (map.get_cost(next) as f32 * SQRT_2) as u32
                     } else {
-                        agent.g_score[&current] + map.get_cost(next)
+                        current.g_score + map.get_cost(next)
                     }
                 };
 
-                if agent.closed_set.get(&next).is_none() && new_cost < agent.g_score[&next] {
+                if agent.closed_set.get(&next).is_none() && new_cost < agent.nodes[&next.pos].g_score {
 
                     next.g_score = new_cost;
                     next.f_score = new_cost + WorldMap::manhattan_distance(current, next);
 
-                    *agent.g_score.get_mut(&next).unwrap() = next.g_score;
-                    *agent.f_score.get_mut(&next).unwrap() = next.f_score;
+                    *agent.nodes.get_mut(&next.pos).unwrap() = next;
 
                     //Update priority queue with this new cost
                     agent.open_set.push_decrease(next, Reverse(next.f_score));
@@ -287,7 +275,7 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
             }
         }
         count = count + 1;
-        if count > 10{
+        if count > 1S {
             return true;
         }
     }
