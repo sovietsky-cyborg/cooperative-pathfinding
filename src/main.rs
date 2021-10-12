@@ -1,6 +1,6 @@
 mod util;
 extern crate cooperative_pathfinding;
-use cooperative_pathfinding::{WorldMap, Agent, Node};
+use cooperative_pathfinding::{WorldMap, Agent, Node, get_true_distance_heuristic};
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -17,9 +17,9 @@ use tui::style::Color;
 
 
 static PATHFINDING_MAP_DATA: [u32; 400] = [
-    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, u32::MAX, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -57,17 +57,18 @@ fn main() -> Result<(), Box<dyn Error>>{
     let space_time_map: Vec<Vec<HashMap<u32, u32>>> = Vec::new();
 
     let mut agent_1 = Agent::new("a");
-    agent_1.set_start(Node {pos: (10, 14), g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {pos: ( 10, 17), g_score: u32::MAX, f_score: 0 });
+    agent_1.set_start(Node {pos: (2, 2), g_score: 0, f_score: 0 });
+    agent_1.set_goal(Node {pos: (4, 4), g_score: 0, f_score: 0 });
 
     let mut agent_2 = Agent::new("b");
     agent_2.set_start(Node {pos: (5, 8), g_score: 0, f_score: 0 });
     agent_2.set_goal(Node{ pos: (10, 11), g_score: u32::MAX, f_score: 0 });
 
-    agent_1.get_true_distance_heuristic(world_map, Node{ pos: (13, 2), g_score: u32::MAX, f_score: 0 });
+    get_true_distance_heuristic(&mut agent_1, &world_map);
+    // get_true_distance_heuristic(&mut agent_2, &world_map);
+    agent_1.print_heuristic(&world_map);
 
-
-    // Terminal initialization
+   /* // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
@@ -155,6 +156,6 @@ fn main() -> Result<(), Box<dyn Error>>{
             }
         }
     }
-
+*/
     Ok(())
 }

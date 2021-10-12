@@ -2,6 +2,7 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use priority_queue::priority_queue::PriorityQueue;
 use std::f32::consts::SQRT_2;
+use std::hash::{Hash, Hasher};
 
 const WINDOW_SIZE: u32 = 8;
 
@@ -59,7 +60,7 @@ impl WorldMap {
             neighbors.push(Node::from((x - 1, y, u32::MAX)));
         }
         // N
-        if x < self.height - 1 {
+        if y < self.height - 1 {
             neighbors.push(Node::from((x, y + 1, u32::MAX)));
         }
         // W
@@ -71,6 +72,20 @@ impl WorldMap {
 
     }
 
+    pub fn is_obstacle(&self, node: Node) -> bool {
+
+        return if self.get_cost(node) == u32::MAX {
+            true
+        } else {
+            false
+        }
+
+    }
+
+    pub fn get(&self, x: u32, y: u32) -> u32 {
+        self.data[(y * self.width + x) as usize]
+    }
+
     // We use Manhattan distance to calculate
     // right angle distance between start and goal
     pub fn manhattan_distance(a: Node, b: Node) -> u32 {
@@ -78,18 +93,24 @@ impl WorldMap {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, Eq)]
 pub struct Node {
     pub pos :(u32, u32),
     pub g_score: u32,
     pub f_score: u32
 }
 
-/*impl Eq for Node {
-    fn eq(&self, other: &Self) -> Self {
-        self.f_score == other.f_score
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+         self.pos == other.pos
     }
-}*/
+}
+
+impl Hash for Node {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.pos.hash(state);
+    }
+}
 
 impl From<(u32, u32, u32)> for Node {
     fn from(item: (u32, u32, u32)) -> Self {
@@ -101,15 +122,15 @@ impl From<(u32, u32, u32)> for Node {
     }
 }
 
-impl Node {
-    pub fn is_obstacle(&self) -> bool {
-        if self.g_score >= u32::MAX{
-            return true;
-        }else{
-            return false;
-        }
-    }
-}
+// impl Node {
+//     pub fn is_obstacle(&self) -> bool {
+//         if self.g_score >= u32::MAX{
+//             return true;
+//         }else{
+//             return false;
+//         }
+//     }
+// }
 
 #[derive(Default)]
 pub struct Agent {
@@ -160,66 +181,116 @@ impl Agent {
         self.goal
     }
 
-
-    pub fn get_true_distance_heuristic(&mut self, map: WorldMap, goal: Node) -> bool {
-
-        let start = goal;
-        let goal =  self.start;
-
-        let is_goal_found = false;
-
-        if goal.is_obstacle(){
-            return false;
-        }
-
-        self.g_score.insert(start, 0);
-        self.f_score.insert(start, 0);
-        self.open_set.push(start, Reverse(0));
-
-        while let Some((current, Reverse(_current_cost))) = self.open_set.pop() {
-
-            if current.pos == goal.pos {
-                return true;
-            }
-
-            for mut next in map.get_neighbors(current) {
-                match self.came_from.get(&next) {
-                    None => {
-                        self.came_from.insert(current, next);
-                        self.g_score.insert(next, u32::MAX);
-                        self.f_score.insert(current, u32::MAX);
-                    }
-                    Some(_) => {}
-                }
-                if !next.is_obstacle(){
-                    let new_cost = {
-                        // We take the current node cost incremented
-                        // from the cost of next node
-                        // If diagonal, add an extra cost for traversing
-                        if current.pos.0 != next.pos.0 && current.pos.1 != next.pos.1 {
-                            current.g_score + (map.get_cost(next) as f32 * SQRT_2) as u32
-                        } else {
-                            current.g_score + map.get_cost(next)
-                        }
-                    };
-
-                    if self.closed_set.get(&next).is_none() && new_cost < next.g_score {
-
-                        next.g_score = new_cost;
-                        next.f_score = next.g_score + WorldMap::manhattan_distance(current, next);
-
-                        //Update priority queue with this new cost
-                        self.open_set.push_decrease(next, Reverse(next.f_score));
-
-                    }
-                }
-            }
-        }
-        false
-    }
-
     pub fn set_portion_path(&mut self) {
 
     }
 
+    pub fn print_heuristic(&self, map: &WorldMap) {
+
+        for y in 0..map.height - 1 {
+            for x in 0..map.width - 1 {
+                let score = match self.f_score.get(&Node::from((x, y, 0))) {
+                    Some(el) => {
+                        if *el == u32::MAX {
+                            print!("inf",);
+                        }else{
+                            if *el < 10 {
+                                print!("  {:?}", el);
+                            } else {
+                                print!(" {:?}", el);
+                            }
+                        }
+                    }
+                    None => {
+
+                        let el = map.get_cost(Node::from((x, y, 0)));
+                        if el == u32::MAX {
+                            print!("inf",);
+                        }else{
+                            if el < 10 {
+                                print!("  {:?}", el);
+                            } else {
+                                print!(" {:?}", el);
+                            }
+                        }
+                    }
+                };
+            }
+            print!("\n");
+        }
+    }
 }
+
+pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
+
+    let start = agent.goal;
+    let goal =  agent.start;
+
+    // let is_goal_found = false;
+    if map.is_obstacle(goal) {
+        return false;
+    }
+
+    agent.g_score.insert(start, 0);
+    agent.f_score.insert(start, 0);
+    agent.open_set.push(start, Reverse(0));
+
+    let mut count = 0;
+
+    while let Some((current, Reverse(_current_cost))) = agent.open_set.pop() {
+
+        if current.pos == goal.pos {
+            return true;
+        }
+
+        agent.closed_set.insert(current, current.f_score);
+
+        for mut next in map.get_neighbors(current) {
+            match agent.came_from.get(&next) {
+                None => {
+                    agent.came_from.insert(current, next);
+                    agent.g_score.insert(next, u32::MAX);
+                    agent.f_score.insert(next, u32::MAX);
+
+                }
+                Some(_) => {}
+            }
+
+            if !map.is_obstacle(next) {
+
+                let new_cost = {
+
+                    // We take the current node cost incremented
+                    // from the cost of next node
+                    // If diagonal, add an extra cost for traversing
+                    if current.pos.0 != next.pos.0 && current.pos.1 != next.pos.1 {
+                        current.g_score + (map.get_cost(next) as f32 * SQRT_2) as u32
+                    } else {
+                        agent.g_score[&current] + map.get_cost(next)
+                    }
+                };
+
+                if agent.closed_set.get(&next).is_none() && new_cost < agent.g_score[&next] {
+
+                    next.g_score = new_cost;
+                    next.f_score = new_cost + WorldMap::manhattan_distance(current, next);
+
+                    *agent.g_score.get_mut(&next).unwrap() = next.g_score;
+                    *agent.f_score.get_mut(&next).unwrap() = next.f_score;
+
+                    //Update priority queue with this new cost
+                    agent.open_set.push_decrease(next, Reverse(next.f_score));
+
+                }
+            }else{
+                agent.closed_set.insert(next, u32::MAX);
+            }
+        }
+        count = count + 1;
+        if count > 10{
+            return true;
+        }
+    }
+    true
+}
+
