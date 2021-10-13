@@ -123,7 +123,7 @@ impl From<(u32, u32, u32)> for Node {
 pub struct Agent {
 
     pub came_from: HashMap<Node, Node>,
-    pub nodes: HashMap<(u32, u32), Node>,
+    pub cost_so_far: HashMap<(u32, u32), Node>,
     pub closed_set: HashMap<Node, u32>,
 
     // This priority queue will be ordered by the reverse of the highest cost
@@ -176,10 +176,10 @@ impl Agent {
 
         for y in 0..map.height - 1 {
             for x in 0..map.width - 1 {
-                let score = match self.nodes.get(&(x, y)) {
+                let score = match self.cost_so_far.get(&(x, y)) {
                     Some(node) => {
 
-                        let score = node.f_score;
+                        let score = node.g_score;
 
                         if score == u32::MAX {
                             print!("  #");
@@ -220,7 +220,7 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
         return false;
     }
 
-    agent.nodes.insert(start.pos, start);
+    agent.cost_so_far.insert(start.pos, start);
     agent.open_set.push(start, Reverse(0));
 
     let mut count = 0;
@@ -229,21 +229,17 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
 
         agent.closed_set.insert(current, current.f_score);
 
-        println!("current {:?}, g_score {:?} ", current.pos, current.g_score);
-
         for mut next in map.get_neighbors(current) {
-            match agent.came_from.get(&next) {
+            match agent.cost_so_far.get(&next.pos) {
                 None => {
                     agent.came_from.insert(current, next);
-
                     next.g_score = u32::MAX;
                     next.f_score = u32::MAX;
-                    agent.nodes.insert(next.pos, next);
+                    agent.cost_so_far.insert(next.pos, next);
 
                 }
                 Some(_) => {}
             }
-            println!("next {:?}, g_score {:?}", next.pos,  next.g_score);
 
             if !map.is_obstacle(next) {
 
@@ -259,24 +255,22 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
                     }
                 };
 
-                if agent.closed_set.get(&next).is_none() && new_cost < agent.nodes[&next.pos].g_score {
+                if agent.closed_set.get(&next).is_none() || new_cost < agent.cost_so_far[&next.pos].g_score {
 
                     next.g_score = new_cost;
                     next.f_score = new_cost + WorldMap::manhattan_distance(current, next);
 
-                    *agent.nodes.get_mut(&next.pos).unwrap() = next;
+                    agent.closed_set.insert(next, next.f_score);
+                    *agent.cost_so_far.get_mut(&next.pos).unwrap() = next;
 
                     //Update priority queue with this new cost
                     agent.open_set.push_decrease(next, Reverse(next.f_score));
 
                 }
+
             }else{
                 agent.closed_set.insert(next, u32::MAX);
             }
-        }
-        count = count + 1;
-        if count > 1S {
-            return true;
         }
     }
     true
