@@ -6,10 +6,12 @@ use std::hash::{Hash, Hasher};
 
 const WINDOW_SIZE: u32 = 8;
 
+#[derive(Default)]
 pub struct WorldMap {
     pub data: Vec<u32>,
     pub width: u32,
-    pub height: u32
+    pub height: u32,
+    space_time_map: Vec<HashMap<(u32, u32), bool>>
 }
 
 impl WorldMap {
@@ -18,7 +20,8 @@ impl WorldMap {
         WorldMap {
             data,
             width,
-            height
+            height,
+            ..Default::default()
         }
     }
 
@@ -168,18 +171,14 @@ impl Agent {
         self.goal
     }
 
-    pub fn set_portion_path(&mut self) {
-
-    }
-
     pub fn print_heuristic(&self, map: &WorldMap) {
 
-        for y in 0..map.height - 1 {
-            for x in 0..map.width - 1 {
+        for y in 0..map.height {
+            for x in 0..map.width {
                 let score = match self.cost_so_far.get(&(x, y)) {
                     Some(node) => {
 
-                        let score = node.g_score;
+                        let score = node.f_score;
 
                         if score == u32::MAX {
                             print!("  #");
@@ -209,21 +208,37 @@ impl Agent {
             print!("\n");
         }
     }
+
+    /* Will calculate the path depending of agents position in the space-time map */
+    pub fn set_portion_path(&mut self, map: &mut WorldMap) {
+
+        let current = self.start;
+        let next_best = self.came_from[&    current];
+
+        for i in 0..WINDOW_SIZE {
+
+            if map.space_time_map[i as usize].get(&next_best.pos).is_none() {
+                map.space_time_map[i as usize].insert(next_best.pos, true);
+            }
+        }
+    }
 }
 
+/* Will calculate the g_score by running a Reverse Resumable A* */
 pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
 
-    let start = agent.goal;
+    let mut start = agent.goal;
     let goal =  agent.start;
 
     if map.is_obstacle(goal) {
         return false;
     }
 
-    agent.cost_so_far.insert(start.pos, start);
-    agent.open_set.push(start, Reverse(0));
+    start.g_score = 0;
+    start.f_score = WorldMap::manhattan_distance(start, goal);
 
-    let mut count = 0;
+    agent.cost_so_far.insert(start.pos, start);
+    agent.open_set.push(start, Reverse(WorldMap::manhattan_distance(start, goal)));
 
     while let Some((current, Reverse(_current_cost))) = agent.open_set.pop() {
 
@@ -232,7 +247,6 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
         for mut next in map.get_neighbors(current) {
             match agent.cost_so_far.get(&next.pos) {
                 None => {
-                    agent.came_from.insert(current, next);
                     next.g_score = u32::MAX;
                     next.f_score = u32::MAX;
                     agent.cost_so_far.insert(next.pos, next);
@@ -258,8 +272,9 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
                 if agent.closed_set.get(&next).is_none() || new_cost < agent.cost_so_far[&next.pos].g_score {
 
                     next.g_score = new_cost;
-                    next.f_score = new_cost + WorldMap::manhattan_distance(current, next);
+                    next.f_score = new_cost + WorldMap::manhattan_distance(current, goal);
 
+                    agent.came_from.insert(current, next);
                     agent.closed_set.insert(next, next.f_score);
                     *agent.cost_so_far.get_mut(&next.pos).unwrap() = next;
 

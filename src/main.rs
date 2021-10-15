@@ -41,11 +41,15 @@ static PATHFINDING_MAP_DATA: [u32; 400] = [
 
 struct App {
 
+    input: String,
+    next: bool,
 }
 
-impl App {
-    fn new() -> App {
+impl Default for App {
+    fn default() -> App {
         App {
+            input: String::new(),
+            next: false,
         }
     }
 }
@@ -58,17 +62,17 @@ fn main() -> Result<(), Box<dyn Error>>{
 
     let mut agent_1 = Agent::new("a");
     agent_1.set_start(Node {pos: (0, 0), g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {pos: (7, 7), g_score: 0, f_score: 0 });
+    agent_1.set_goal(Node {pos: (5, 19), g_score: 0, f_score: 0 });
 
     let mut agent_2 = Agent::new("b");
     agent_2.set_start(Node {pos: (5, 8), g_score: 0, f_score: 0 });
     agent_2.set_goal(Node{ pos: (10, 11), g_score: u32::MAX, f_score: 0 });
 
-    get_true_distance_heuristic(&mut agent_1, &world_map);
+    // get_true_distance_heuristic(&mut agent_1, &world_map);
     // get_true_distance_heuristic(&mut agent_2, &world_map);
-    agent_1.print_heuristic(&world_map);
+    // agent_1.print_heuristic(&world_map);
 
-   /* // Terminal initialization
+    // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
@@ -80,7 +84,7 @@ fn main() -> Result<(), Box<dyn Error>>{
         ..Default::default()
     };
     let events = Events::new();
-    let mut app = App::new();
+    let mut app = App::default();
 
     loop {
         terminal.draw(|f| {
@@ -154,8 +158,11 @@ fn main() -> Result<(), Box<dyn Error>>{
             if let Key::Char('q') = input {
                 break;
             }
+            if let Key::Char('n') = input {
+                app.next = true;
+            }
         }
     }
-*/
+
     Ok(())
 }
