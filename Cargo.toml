@@ -6,8 +6,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bracket-lib = "0.7"
-bracket-terminal = "0.7"
+bracket-lib = "0.8.1"
+bracket-terminal = "0.8.5"
+bracket-random = "0.8.2"
+bracket-pathfinding = "0.8.4"
 termion = "1.5"
 rand = "0.8"
 cooperative_pathfinding = { path = "lib/cooperative_pathfinding" }
