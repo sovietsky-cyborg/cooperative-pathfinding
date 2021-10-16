@@ -1,8 +1,10 @@
 
 bracket_terminal::add_wasm_support!();
+use std::collections::HashMap;
 use bracket_pathfinding::prelude::*;
 use bracket_random::prelude::*;
 use bracket_terminal::prelude::*;
+use cooperative_pathfinding::{Agent, get_true_distance_heuristic, Node, WorldMap};
 
 
 static PATHFINDING_MAP_DATA: [u32; 1600] = [
@@ -20,13 +22,13 @@ static PATHFINDING_MAP_DATA: [u32; 1600] = [
     1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, u32::MAX, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, u32::MAX, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, u32::MAX, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, u32::MAX, 1, 1, 1, 1, 1, 1, u32::MAX, 1,  1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, u32::MAX, 1,  1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1,
     1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1,
+    u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, u32::MAX, u32::MAX, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1,
@@ -173,15 +175,13 @@ impl GameState for State {
     }
 }
 
-fn main() -> BError {
+fn main() /*-> BError*/ {
 
-    /*    let world_map = WorldMap::new(Vec::from(PATHFINDING_MAP_DATA),20, 20);
-
-    let space_time_map: Vec<Vec<HashMap<u32, u32>>> = Vec::new();
+    let mut world_map = WorldMap::new(Vec::from(PATHFINDING_MAP_DATA), WIDTH as u32, HEIGHT as u32);
 
     let mut agent_1 = Agent::new("a");
-    agent_1.set_start(Node {pos: (0, 0), g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {pos: (5, 19), g_score: 0, f_score: 0 });
+    agent_1.set_start(Node {pos: (1, 1), g_score: 0, f_score: 0 });
+    agent_1.set_goal(Node {pos: (30, 35), g_score: 0, f_score: 0 });
 
     let mut agent_2 = Agent::new("b");
     agent_2.set_start(Node {pos: (5, 8), g_score: 0, f_score: 0 });
@@ -189,13 +189,18 @@ fn main() -> BError {
 
     get_true_distance_heuristic(&mut agent_1, &world_map);
     get_true_distance_heuristic(&mut agent_2, &world_map);
-    agent_1.print_heuristic(&world_map);*/
+
+    agent_1.print_heuristic(&world_map);
+
+    agent_1.set_portion_path(&mut world_map);
+
+    println!("agent_1.portion_path {:?}", agent_1.portion_path);
 
 
-    let context = BTermBuilder::simple(WIDTH + 40 , HEIGHT).unwrap()
-        .with_title("Collaborative Pathfinding (WHCA*)")
-        .with_dimensions(256, 192)
-        .build()?;
-    let gs = State::new();
-    main_loop(context, gs)
+    // let context = BTermBuilder::simple(WIDTH + 40 , HEIGHT).unwrap()
+    //     .with_title("Collaborative Pathfinding (WHCA*)")
+    //     .with_dimensions(256, 192)
+    //     .build()?;
+    // let gs = State::new();
+    // main_loop(context, gs)
 }

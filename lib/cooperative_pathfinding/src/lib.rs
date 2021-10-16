@@ -3,24 +3,31 @@ use std::collections::HashMap;
 use priority_queue::priority_queue::PriorityQueue;
 use std::f32::consts::SQRT_2;
 use std::hash::{Hash, Hasher};
+use std::iter::FromIterator;
 
 const WINDOW_SIZE: u32 = 8;
 
+type SpaceTimeMap<'a> = Vec<HashMap<(u32, u32), &'a str>>;
+
 #[derive(Default)]
-pub struct WorldMap {
+pub struct WorldMap<'a> {
     pub data: Vec<u32>,
     pub width: u32,
     pub height: u32,
-    space_time_map: Vec<HashMap<(u32, u32), bool>>
+    space_time_map: SpaceTimeMap<'a>
 }
 
-impl WorldMap {
+impl<'a> WorldMap<'a> {
 
-    pub fn new(data: Vec<u32>, width: u32, height: u32) -> WorldMap {
+    pub fn new(data: Vec<u32>, width: u32, height: u32) -> WorldMap<'a> {
         WorldMap {
             data,
             width,
             height,
+            space_time_map: std::iter::repeat(HashMap::new())
+                .take(WINDOW_SIZE as usize)
+                .collect::<SpaceTimeMap<'a>>(),
+
             ..Default::default()
         }
     }
@@ -29,43 +36,43 @@ impl WorldMap {
         self.data[(node.pos.1 * self.width + node.pos.0) as usize]
     }
 
-    pub fn get_neighbors(&self, position: Node) -> Vec<Node> {
+    pub fn get_neighbors(&self, position: Node) -> Vec<(u32, u32)> {
 
-        let mut neighbors =  Vec::<Node>::new();
+        let mut neighbors =  Vec::<(u32, u32)>::new();
         let x = position.pos.0;
         let y = position.pos.1;
 
         // NE
         if x < self.width - 1 && y < self.height - 1{
-            neighbors.push(Node::from((x + 1, y + 1, u32::MAX)));
+            neighbors.push((x + 1, y + 1));
         }
         // SW
         if x > 0 && y > 0 {
-            neighbors.push(Node::from((x - 1, y - 1, u32::MAX)));
+            neighbors.push((x - 1, y - 1));
         }
         // NW
         if x > 0 && y < self.height - 1{
-            neighbors.push(Node::from((x - 1, y + 1, u32::MAX)));
+            neighbors.push((x - 1, y + 1));
         }
         // SE
         if x < self.width - 1 && y > 0{
-            neighbors.push(Node::from((x + 1, y - 1, u32::MAX)));
+            neighbors.push((x + 1, y - 1));
         }
         // E
         if x < self.width - 1 {
-            neighbors.push(Node::from((x + 1, y, u32::MAX)));
+            neighbors.push((x + 1, y));
         }
         // W
         if x > 0 {
-            neighbors.push(Node::from((x - 1, y, u32::MAX)));
+            neighbors.push((x - 1, y));
         }
         // N
         if y < self.height - 1 {
-            neighbors.push(Node::from((x, y + 1, u32::MAX)));
+            neighbors.push((x, y + 1));
         }
         // S
         if y > 0 {
-            neighbors.push(Node::from((x, y - 1, u32::MAX)));
+            neighbors.push((x, y - 1));
         }
 
         neighbors
@@ -141,7 +148,7 @@ pub struct Agent {
     next_node: Node,
 
     path: Vec<Node>,
-    portion_path: Vec<Node>,
+    pub portion_path: Vec<Node>,
 }
 
 impl Agent {
@@ -149,6 +156,7 @@ impl Agent {
     pub fn new(name: &str) -> Agent{
         Agent {
             name: name.into(),
+            portion_path : Vec::with_capacity(WINDOW_SIZE as usize),
             ..Default::default()
         }
     }
@@ -178,7 +186,7 @@ impl Agent {
                 let score = match self.cost_so_far.get(&(x, y)) {
                     Some(node) => {
 
-                        let score = node.f_score;
+                        let score = node.g_score;
 
                         if score == u32::MAX {
                             print!("  #");
@@ -210,17 +218,56 @@ impl Agent {
     }
 
     /* Will calculate the path depending of agents position in the space-time map */
-    pub fn set_portion_path(&mut self, map: &mut WorldMap) {
+    pub fn set_portion_path<'a>(&'a mut self, map: &mut WorldMap<'a>) {
 
-        let current = self.start;
-        let next_best = self.came_from[&    current];
+        let current = self.goal;
+       /* let prev = current; */
+        println!("map.space_time_map {:?}", map.space_time_map);
+        let mut next_best = self.came_from[&current];
 
         for i in 0..WINDOW_SIZE {
 
-            if map.space_time_map[i as usize].get(&next_best.pos).is_none() {
-                map.space_time_map[i as usize].insert(next_best.pos, true);
+            let occupied_node = map.space_time_map[i as usize].get(&next_best.pos);
+
+            /* This Node is already occupied by another agent ? */
+            if !occupied_node.is_none() && occupied_node.unwrap() != &self.name{
+
+                /* Otherwise, Node is already occupied by another agent on T+1 ? */
+                match map.space_time_map[(i + 1) as usize].get(&next_best.pos) {
+                    Some(_) => {
+
+                        /* Node is definitely unreachable, so we check each neighbor g_cost */
+                        let mut best_neighbor = current;
+
+                        for neighbor_pos in map.get_neighbors(current) {
+                            if map.space_time_map[i as usize].get(&neighbor_pos).is_none() {
+
+                                let neighbor = self.cost_so_far.get(&neighbor_pos).unwrap() ;
+                                if neighbor.f_score <= current.f_score {
+                                    best_neighbor = *neighbor;
+                                }
+                            }
+                        }
+                        map.space_time_map[(i + 1) as usize].insert(best_neighbor.pos, &self.name).unwrap();
+                    },
+                    None => {
+                        /* T+1 is available, reserve for next iteration */
+                        next_best = current;
+                        map.space_time_map[(i + 1) as usize].insert(next_best.pos, &self.name).unwrap();
+                    }
+                }
             }
+
+            next_best = self.came_from[&current];
+            self.portion_path.push(next_best);
         }
+    }
+}
+
+
+impl PartialEq for Agent {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
     }
 }
 
@@ -244,11 +291,17 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
 
         agent.closed_set.insert(current, current.f_score);
 
-        for mut next in map.get_neighbors(current) {
+        for mut next_pos in map.get_neighbors(current) {
+
+            let mut next: Node = Default::default();
+
             match agent.cost_so_far.get(&next.pos) {
                 None => {
-                    next.g_score = u32::MAX;
-                    next.f_score = u32::MAX;
+                    next = Node {
+                        pos: next_pos,
+                        g_score: u32::MAX,
+                        f_score: u32::MAX
+                    };
                     agent.cost_so_far.insert(next.pos, next);
 
                 }
