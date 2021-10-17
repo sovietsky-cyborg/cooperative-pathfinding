@@ -5,28 +5,28 @@ use std::f32::consts::SQRT_2;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 
-const WINDOW_SIZE: u32 = 8;
+pub const WINDOW_SIZE: u32 = 8;
 
-type SpaceTimeMap<'a> = Vec<HashMap<(u32, u32), &'a str>>;
+type SpaceTimeMap = Vec<HashMap<(u32, u32), u32>>;
 
 #[derive(Default)]
-pub struct WorldMap<'a> {
+pub struct WorldMap {
     pub data: Vec<u32>,
     pub width: u32,
     pub height: u32,
-    space_time_map: SpaceTimeMap<'a>
+    space_time_map: SpaceTimeMap
 }
 
-impl<'a> WorldMap<'a> {
+impl WorldMap {
 
-    pub fn new(data: Vec<u32>, width: u32, height: u32) -> WorldMap<'a> {
+    pub fn new(data: Vec<u32>, width: u32, height: u32) -> WorldMap {
         WorldMap {
             data,
             width,
             height,
             space_time_map: std::iter::repeat(HashMap::new())
                 .take(WINDOW_SIZE as usize)
-                .collect::<SpaceTimeMap<'a>>(),
+                .collect::<SpaceTimeMap>(),
 
             ..Default::default()
         }
@@ -140,10 +140,11 @@ pub struct Agent {
     // so, the priority of nodes exploration will depend of their accessibility cost
     pub open_set: PriorityQueue<Node, Reverse<u32>>,
 
-    name: String,
+    id: u32,
+    pub name: String,
     start: Node,
     goal: Node,
-    current_node: Node,
+    pub current_node: Node,
     previous_node: Node,
     next_node: Node,
 
@@ -153,8 +154,9 @@ pub struct Agent {
 
 impl Agent {
 
-    pub fn new(name: &str) -> Agent{
+    pub fn new(id: u32, name: &str) -> Agent{
         Agent {
+            id,
             name: name.into(),
             portion_path : Vec::with_capacity(WINDOW_SIZE as usize),
             ..Default::default()
@@ -186,7 +188,7 @@ impl Agent {
                 let score = match self.cost_so_far.get(&(x, y)) {
                     Some(node) => {
 
-                        let score = node.g_score;
+                        let score = node.f_score;
 
                         if score == u32::MAX {
                             print!("  #");
@@ -218,19 +220,25 @@ impl Agent {
     }
 
     /* Will calculate the path depending of agents position in the space-time map */
-    pub fn set_portion_path<'a>(&'a mut self, map: &mut WorldMap<'a>) {
+    pub fn set_portion_path(&mut self, map: &mut WorldMap) {
 
-        let current = self.goal;
-       /* let prev = current; */
-        println!("map.space_time_map {:?}", map.space_time_map);
-        let mut next_best = self.came_from[&current];
+        let mut current = self.start;
+        /* let prev = current; */
+        let mut next_best;
+
 
         for i in 0..WINDOW_SIZE {
+
+            if current == self.goal {
+                break;
+            }
+
+            next_best = self.came_from[&current];
 
             let occupied_node = map.space_time_map[i as usize].get(&next_best.pos);
 
             /* This Node is already occupied by another agent ? */
-            if !occupied_node.is_none() && occupied_node.unwrap() != &self.name{
+            if !occupied_node.is_none() && occupied_node.unwrap() != &self.id {
 
                 /* Otherwise, Node is already occupied by another agent on T+1 ? */
                 match map.space_time_map[(i + 1) as usize].get(&next_best.pos) {
@@ -248,19 +256,22 @@ impl Agent {
                                 }
                             }
                         }
-                        map.space_time_map[(i + 1) as usize].insert(best_neighbor.pos, &self.name).unwrap();
+                        map.space_time_map[(i + 1) as usize].insert(best_neighbor.pos, self.id).unwrap();
                     },
                     None => {
-                        /* T+1 is available, reserve for next iteration */
+                        /* T + 1 is available, reserve for next iteration */
                         next_best = current;
-                        map.space_time_map[(i + 1) as usize].insert(next_best.pos, &self.name).unwrap();
+                        map.space_time_map[(i + 1) as usize].insert(next_best.pos, self.id).unwrap();
                     }
                 }
+            }else{
+                current = next_best;
             }
 
-            next_best = self.came_from[&current];
             self.portion_path.push(next_best);
+            current = next_best;
         }
+        self.portion_path.reverse();
     }
 }
 
@@ -295,7 +306,7 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
 
             let mut next: Node = Default::default();
 
-            match agent.cost_so_far.get(&next.pos) {
+            match agent.cost_so_far.get(&next_pos) {
                 None => {
                     next = Node {
                         pos: next_pos,
@@ -307,7 +318,6 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
                 }
                 Some(_) => {}
             }
-
             if !map.is_obstacle(next) {
 
                 let new_cost = {
@@ -322,15 +332,15 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
                     }
                 };
 
-                if agent.closed_set.get(&next).is_none() || new_cost < agent.cost_so_far[&next.pos].g_score {
+                if agent.closed_set.get(&next).is_none() || new_cost < agent.cost_so_far[&next.pos].f_score {
+
+                    agent.closed_set.insert(next, next.g_score);
 
                     next.g_score = new_cost;
                     next.f_score = new_cost + WorldMap::manhattan_distance(current, goal);
 
-                    agent.came_from.insert(current, next);
-                    agent.closed_set.insert(next, next.f_score);
                     *agent.cost_so_far.get_mut(&next.pos).unwrap() = next;
-
+                    agent.came_from.insert(next, current);
                     //Update priority queue with this new cost
                     agent.open_set.push_decrease(next, Reverse(next.f_score));
 
@@ -339,6 +349,11 @@ pub fn get_true_distance_heuristic(agent: &mut Agent, map: &WorldMap) -> bool {
             }else{
                 agent.closed_set.insert(next, u32::MAX);
             }
+        }
+
+
+        if goal.pos == current.pos {
+            break;
         }
     }
     true

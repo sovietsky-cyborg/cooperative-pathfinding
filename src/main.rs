@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use bracket_pathfinding::prelude::*;
 use bracket_random::prelude::*;
 use bracket_terminal::prelude::*;
-use cooperative_pathfinding::{Agent, get_true_distance_heuristic, Node, WorldMap};
+use cooperative_pathfinding::{Agent, get_true_distance_heuristic, Node, WINDOW_SIZE, WorldMap};
 
 
 static PATHFINDING_MAP_DATA: [u32; 1600] = [
@@ -68,6 +68,9 @@ enum Mode {
 
 struct State {
     map: Vec<TileType>,
+    agents: Vec<Agent>,
+    world_map: WorldMap,
+    steps: u32
 }
 
 pub fn xy_idx(x: i32, y: i32) -> usize {
@@ -79,19 +82,19 @@ pub fn idx_xy(idx: usize) -> (i32, i32) {
 }
 
 impl State {
-    pub fn new() -> State {
+    pub fn new(agents: Vec<Agent>, world_map: WorldMap) -> State {
         let mut state = State {
             map: vec![TileType::Floor; 40 * 40],
+            agents,
+            world_map,
+            steps: 0
         };
-
-        let mut rng = RandomNumberGenerator::new();
 
         for i in 0..1600 {
             if PATHFINDING_MAP_DATA[i] == u32::MAX {
                 state.map[i] = TileType::Wall;
             }
         }
-
         state
     }
 }
@@ -106,7 +109,18 @@ impl GameState for State {
         match ctx.key {
             None => {}
             Some(key) => {
-                if key == VirtualKeyCode::Return {
+                if key == VirtualKeyCode::Return && self.steps < WINDOW_SIZE {
+
+                    for i in 0..self.agents.len() {
+                        let mut agent = &mut self.agents[i];
+                        if self.steps % WINDOW_SIZE == 0 && self.steps < WINDOW_SIZE{
+                            get_true_distance_heuristic(&mut agent, &self.world_map);
+                            agent.set_portion_path(&mut self.world_map);
+                        }
+
+                        agent.current_node = agent.portion_path.pop().unwrap();
+                    }
+
                     // Clear the screen
                     draw_batch.cls();
 
@@ -135,6 +149,9 @@ impl GameState for State {
                     block.print(&buf).expect("Text was too long");
 
                     block.render_to_draw_batch(&mut draw_batch);
+
+                    self.steps += 1;
+
                 }
             }
         };
@@ -169,38 +186,50 @@ impl GameState for State {
                 y += 1;
             }
         }
+        for i in 0..self.agents.len() {
+            let agent = &self.agents[i];
+            draw_batch.print_color(
+                Point::new(agent.current_node.pos.0, agent.current_node.pos.1),
+                &agent.name,
+                ColorPair::new(RGB::from_f32(1., 0., 0.), RGB::from_f32(0., 0., 0.)),
+            );
+        }
+
+
         // Submit the rendering
         draw_batch.submit(0).expect("Batch error");
         render_draw_buffer(ctx).expect("Render error");
     }
 }
 
-fn main() /*-> BError*/ {
+fn main() -> BError {
 
     let mut world_map = WorldMap::new(Vec::from(PATHFINDING_MAP_DATA), WIDTH as u32, HEIGHT as u32);
 
-    let mut agent_1 = Agent::new("a");
+    let mut agents = Vec::<Agent>::new();
+
+    let mut agent_1 = Agent::new(1, "a".into());
     agent_1.set_start(Node {pos: (1, 1), g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {pos: (30, 35), g_score: 0, f_score: 0 });
+    agent_1.set_goal(Node {pos: (1, 6), g_score: 0, f_score: 0 });
 
-    let mut agent_2 = Agent::new("b");
-    agent_2.set_start(Node {pos: (5, 8), g_score: 0, f_score: 0 });
-    agent_2.set_goal(Node{ pos: (10, 11), g_score: u32::MAX, f_score: 0 });
+    let mut agent_2 = Agent::new(2, "b".into());
+    agent_2.set_start(Node {pos: (1, 5), g_score: 0, f_score: 0 });
+    agent_2.set_goal(Node{ pos: (1, 1), g_score: u32::MAX, f_score: 0 });
 
-    get_true_distance_heuristic(&mut agent_1, &world_map);
-    get_true_distance_heuristic(&mut agent_2, &world_map);
 
+/*    get_true_distance_heuristic(&mut agent_1, &world_map);
     agent_1.print_heuristic(&world_map);
+    agent_1.set_portion_path(&mut world_map);*/
 
-    agent_1.set_portion_path(&mut world_map);
+    agents.push(agent_1);
+    agents.push(agent_2);
 
-    println!("agent_1.portion_path {:?}", agent_1.portion_path);
+    let context = BTermBuilder::simple(WIDTH + 40 , HEIGHT).unwrap()
+        .with_title("Collaborative Pathfinding (WHCA*)")
+        .with_dimensions(256, 192)
+        .build()?;
 
+    let gs = State::new(agents, world_map);
 
-    // let context = BTermBuilder::simple(WIDTH + 40 , HEIGHT).unwrap()
-    //     .with_title("Collaborative Pathfinding (WHCA*)")
-    //     .with_dimensions(256, 192)
-    //     .build()?;
-    // let gs = State::new();
-    // main_loop(context, gs)
+    main_loop(context, gs)
 }
