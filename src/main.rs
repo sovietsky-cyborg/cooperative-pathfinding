@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use bracket_pathfinding::prelude::*;
 use bracket_random::prelude::*;
 use bracket_terminal::prelude::*;
-use cooperative_pathfinding::{Agent, get_true_distance_heuristic, Node, WINDOW_SIZE, WorldMap};
+use cooperative_pathfinding::{Agent, Node, WINDOW_SIZE, WorldMap};
 
 
 static PATHFINDING_MAP_DATA: [u32; 1600] = [
@@ -14,7 +14,7 @@ static PATHFINDING_MAP_DATA: [u32; 1600] = [
     1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1,  u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, u32::MAX, u32::MAX, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, u32::MAX, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -106,6 +106,7 @@ impl GameState for State {
 
         // We'll use batched drawing
         let mut draw_batch = DrawBatch::new();
+        draw_batch.cls();
         match ctx.key {
             None => {}
             Some(key) => {
@@ -114,44 +115,15 @@ impl GameState for State {
                     for i in 0..self.agents.len() {
                         let mut agent = &mut self.agents[i];
                         if self.steps % WINDOW_SIZE == 0 && self.steps < WINDOW_SIZE{
-                            get_true_distance_heuristic(&mut agent, &self.world_map);
+                            agent.get_true_distance_heuristic(&self.world_map, agent.get_start(), agent.get_goal());
                             agent.set_portion_path(&mut self.world_map);
+                            // println!("agent {:?} heuristic",  agent.name);
+                            agent.print_heuristic(&self.world_map);
                         }
 
                         agent.current_node = agent.portion_path.pop().unwrap();
                     }
-
-                    // Clear the screen
-                    draw_batch.cls();
-
-                    let mut block = TextBlock::new(HEIGHT, 0, 80, 25);
-
-                    let mut buf = TextBuilder::empty();
-                    buf.ln()
-                        .fg(RGB::named(YELLOW))
-                        .bg(RGB::named(BLUE))
-                        .centered("Hello World")
-                        .fg(RGB::named(WHITE))
-                        .bg(RGB::named(BLACK))
-                        .ln()
-                        .ln()
-                        .line_wrap("The quick brown fox jumped over the lazy dog, and just kept on running in an attempt to exceed the console width.")
-                        .ln()
-                        .ln()
-                        .line_wrap("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
-                        .ln().ln()
-                        .fg(RGB::named(CYAN))
-                        .append("FPS: ")
-                        .fg(RGB::named(MAGENTA))
-                        .append(&format!("{}", ctx.fps))
-                        .reset();
-
-                    block.print(&buf).expect("Text was too long");
-
-                    block.render_to_draw_batch(&mut draw_batch);
-
                     self.steps += 1;
-
                 }
             }
         };
@@ -195,6 +167,22 @@ impl GameState for State {
             );
         }
 
+        let mut block = TextBlock::new(HEIGHT, 0, 80, 25);
+        let mut buf = TextBuilder::empty();
+
+        /*for i in 0..self.steps {
+
+            let log_step = self.world_map.log_file.get(&i).unwrap();
+
+            for y in 0..log_step.len() {
+                buf.ln().line_wrap(&*log_step[y])
+                    .ln();
+            }
+        }*/
+        block.print(&buf).expect("Text was too long");
+
+        block.render_to_draw_batch(&mut draw_batch);
+
 
         // Submit the rendering
         draw_batch.submit(0).expect("Batch error");
@@ -210,19 +198,19 @@ fn main() -> BError {
 
     let mut agent_1 = Agent::new(1, "a".into());
     agent_1.set_start(Node {pos: (1, 1), g_score: 0, f_score: 0 });
-    agent_1.set_goal(Node {pos: (1, 6), g_score: 0, f_score: 0 });
+    agent_1.set_goal(Node {pos: (1, 8), g_score: 0, f_score: 0 });
 
     let mut agent_2 = Agent::new(2, "b".into());
     agent_2.set_start(Node {pos: (1, 5), g_score: 0, f_score: 0 });
     agent_2.set_goal(Node{ pos: (1, 1), g_score: u32::MAX, f_score: 0 });
 
-
-/*    get_true_distance_heuristic(&mut agent_1, &world_map);
-    agent_1.print_heuristic(&world_map);
-    agent_1.set_portion_path(&mut world_map);*/
+    let mut agent_3 = Agent::new(3, "c".into());
+    agent_3.set_start(Node {pos: (5, 1), g_score: 0, f_score: 0 });
+    agent_3.set_goal(Node{ pos: (0, 10), g_score: u32::MAX, f_score: 0 });
 
     agents.push(agent_1);
     agents.push(agent_2);
+    agents.push(agent_3);
 
     let context = BTermBuilder::simple(WIDTH + 40 , HEIGHT).unwrap()
         .with_title("Collaborative Pathfinding (WHCA*)")
