@@ -193,7 +193,7 @@ impl Agent {
                 let score = match self.cost_so_far.get(&(x, y)) {
                     Some(node) => {
 
-                        let score = node.g_score;
+                        let score = node.f_score;
 
                         if score == u32::MAX {
                             print!("  #");
