@@ -244,8 +244,7 @@ impl Agent {
 
                 /* This Node is already occupied by another agent ? */
                 if !map.space_time_map[i as usize].get(&next_best.pos).is_none()
-                    && map.space_time_map[i as usize].get(&next_best.pos).unwrap() != &self.id
-                    && !self.is_walking {
+                    && map.space_time_map[i as usize].get(&next_best.pos).unwrap() != &self.id {
 
                     let mut best_neighbor = current;
 
