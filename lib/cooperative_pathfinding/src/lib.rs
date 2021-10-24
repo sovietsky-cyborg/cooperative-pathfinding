@@ -241,10 +241,12 @@ impl Agent {
                 self.is_walking = false;
             }else {
                 next_best = self.came_from[&current];
+                println!("if agent {:?} at next pos {:?}", self.name, next_best.pos);
 
                 /* This Node is already occupied by another agent ? */
-                if !map.space_time_map[i as usize].get(&next_best.pos).is_none()
-                    && map.space_time_map[i as usize].get(&next_best.pos).unwrap() != &self.id {
+                if (!map.space_time_map[i as usize].get(&next_best.pos).is_none()
+                    && map.space_time_map[i as usize].get(&next_best.pos).unwrap() != &self.id)
+                || (i > 0 && !map.space_time_map[(i - 1) as usize].get(&next_best.pos).is_none()){
 
                     let mut best_neighbor = current;
 
@@ -252,25 +254,26 @@ impl Agent {
                     if there is no match in the cost hashmap,
                     we reload the partial search to expand new nodes*/
                     for neighbor_pos in map.get_neighbors(current) {
-                        if map.space_time_map[i as usize].get(&neighbor_pos).is_none() {
+                        if neighbor_pos != next_best.pos {
+                            if map.space_time_map[i as usize].get(&neighbor_pos).is_none() {
+                                let neighbor = match self.cost_so_far.get(&neighbor_pos) {
+                                    None => {
+                                        // println!("agent {:?} reloading heuristic for neighbor {:?}", self.name, neighbor_pos);
+                                        self.get_true_distance_heuristic(map,
+                                                                         Node::from((neighbor_pos.0, neighbor_pos.1, map.get_cost(neighbor_pos))),
+                                                                         self.goal
+                                        );
+                                        self.cost_so_far.get(&neighbor_pos).unwrap()
+                                    }
+                                    Some(node) => {
+                                        node
+                                    }
+                                };
+                                // println!("if neighbor.g_score <= current.f_score if  {:?} {:?} <= {:?} {:?}", neighbor.pos, neighbor.f_score, current.pos, current.f_score);
 
-                            let neighbor = match self.cost_so_far.get(&neighbor_pos) {
-                                None => {
-                                    println!("agent {:?} reloading heuristic for neighbor {:?}", self.name, neighbor_pos);
-                                    self.get_true_distance_heuristic(map,
-                                                                     Node::from((neighbor_pos.0, neighbor_pos.1, map.get_cost(neighbor_pos))),
-                                                                     self.goal
-                                    );
-                                    self.cost_so_far.get(&neighbor_pos).unwrap()
+                                if neighbor.f_score <= current.f_score && map.space_time_map[i as usize].get(&neighbor.pos).is_none() {
+                                    best_neighbor = *neighbor;
                                 }
-                                Some(node) => {
-                                    node
-                                }
-                            };
-                            println!("if neighbor.g_score <= current.f_score if  {:?} {:?} <= {:?} {:?}",neighbor.pos, neighbor.f_score, current.pos, current.f_score);
-
-                            if neighbor.f_score <= current.f_score && map.space_time_map[i as usize].get(&neighbor.pos).is_none(){
-                                best_neighbor = *neighbor;
                             }
                         }
                     }
@@ -289,7 +292,7 @@ impl Agent {
                 self.portion_path.push(next_best);
                 self.current_node = next_best;
 
-                println!("agent {:?} choice is {:?}", self.name, self.current_node.pos);
+                println!("agent {:?} choice at time {:?} is {:?}", self.name, i, self.current_node.pos);
             }
 
         }

@@ -117,7 +117,7 @@ impl GameState for State {
                         if self.steps % WINDOW_SIZE == 0 && self.steps < WINDOW_SIZE{
                             agent.get_true_distance_heuristic(&self.world_map, agent.get_start(), agent.get_goal());
                             agent.set_portion_path(&mut self.world_map);
-                            // println!("agent {:?} heuristic",  agent.name);
+                            println!("agent {:?} heuristic",  agent.name);
                             agent.print_heuristic(&self.world_map);
                         }
 
