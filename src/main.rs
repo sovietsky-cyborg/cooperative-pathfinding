@@ -1,10 +1,12 @@
 
 bracket_terminal::add_wasm_support!();
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use bracket_pathfinding::prelude::*;
 use bracket_random::prelude::*;
 use bracket_terminal::prelude::*;
-use cooperative_pathfinding::{Agent, Node, WINDOW_SIZE, WorldMap};
+use cooperative_pathfinding::{Agent, Agents, Node, WINDOW_SIZE, WorldMap};
 
 
 static PATHFINDING_MAP_DATA: [u32; 1600] = [
@@ -65,10 +67,10 @@ enum Mode {
     Waiting,
     Moving,
 }
-
+#[derive(Default)]
 struct State {
     map: Vec<TileType>,
-    agents: Vec<Agent>,
+    agents: Agents,
     world_map: WorldMap,
     steps: u32
 }
@@ -80,14 +82,14 @@ pub fn xy_idx(x: i32, y: i32) -> usize {
 pub fn idx_xy(idx: usize) -> (i32, i32) {
     (idx as i32 % WIDTH, idx as i32 / WIDTH )
 }
-
 impl State {
-    pub fn new(agents: Vec<Agent>, world_map: WorldMap) -> State {
+    pub fn new(world_map: WorldMap, agents: Agents) -> State {
         let mut state = State {
             map: vec![TileType::Floor; 40 * 40],
-            agents,
             world_map,
-            steps: 0
+            steps: 0,
+            agents,
+            ..Default::default()
         };
 
         for i in 0..1600 {
@@ -112,18 +114,26 @@ impl GameState for State {
             Some(key) => {
                 if key == VirtualKeyCode::Return && self.steps < WINDOW_SIZE {
 
-                    for i in 0..self.agents.len() {
-                        let mut agent = &mut self.agents[i];
+                    for i in 1..self.agents.len() + 1 {
+
+                        let mut rc = &self.agents.get(&(i as u32)).unwrap();
+                        let mut agent = &mut *rc.borrow_mut();
+                        println!("agent {:?}", agent.name);
+
                         if self.steps % WINDOW_SIZE == 0 && self.steps < WINDOW_SIZE{
                             agent.get_true_distance_heuristic(&self.world_map, agent.get_start(), agent.get_goal());
-                            agent.set_portion_path(&mut self.world_map);
-                            println!("agent {:?} heuristic",  agent.name);
+                            agent.set_portion_path(&mut self.world_map, &self.agents);
+                            // println!("agent {:?} heuristic",  agent.name);
                             agent.print_heuristic(&self.world_map);
                         }
 
                         agent.current_node = agent.portion_path.pop().unwrap();
                     }
                     self.steps += 1;
+                }
+                if key == VirtualKeyCode::Q {
+                    println!("pressed Q");
+                    return;
                 }
             }
         };
@@ -158,8 +168,9 @@ impl GameState for State {
                 y += 1;
             }
         }
-        for i in 0..self.agents.len() {
-            let agent = &self.agents[i];
+        for i in 1..self.agents.len() + 1 {
+            let mut rc = &self.agents.get(&(i as u32)).unwrap();
+            let mut agent = &mut *rc.borrow_mut();
             draw_batch.print_color(
                 Point::new(agent.current_node.pos.0, agent.current_node.pos.1),
                 &agent.name,
@@ -167,10 +178,10 @@ impl GameState for State {
             );
         }
 
-        let mut block = TextBlock::new(HEIGHT, 0, 80, 25);
+      /*  let mut block = TextBlock::new(HEIGHT, 0, 80, 25);
         let mut buf = TextBuilder::empty();
 
-        /*for i in 0..self.steps {
+        for i in 0..self.steps {
 
             let log_step = self.world_map.log_file.get(&i).unwrap();
 
@@ -178,11 +189,11 @@ impl GameState for State {
                 buf.ln().line_wrap(&*log_step[y])
                     .ln();
             }
-        }*/
+        }
         block.print(&buf).expect("Text was too long");
 
         block.render_to_draw_batch(&mut draw_batch);
-
+*/
 
         // Submit the rendering
         draw_batch.submit(0).expect("Batch error");
@@ -194,7 +205,7 @@ fn main() -> BError {
 
     let mut world_map = WorldMap::new(Vec::from(PATHFINDING_MAP_DATA), WIDTH as u32, HEIGHT as u32);
 
-    let mut agents = Vec::<Agent>::new();
+    let mut agents = Agents::new();
 
     let mut agent_1 = Agent::new(1, "a".into());
     agent_1.set_start(Node {pos: (1, 1), g_score: 0, f_score: 0 });
@@ -208,16 +219,18 @@ fn main() -> BError {
     agent_3.set_start(Node {pos: (5, 1), g_score: 0, f_score: 0 });
     agent_3.set_goal(Node{ pos: (0, 10), g_score: u32::MAX, f_score: 0 });
 
-    agents.push(agent_1);
-    agents.push(agent_2);
-    agents.push(agent_3);
 
-    let context = BTermBuilder::simple(WIDTH + 40 , HEIGHT).unwrap()
+    agents.insert(1, Rc::new(RefCell::new(agent_1)));
+    agents.insert(2, Rc::new(RefCell::new(agent_2)));
+    agents.insert(3, Rc::new(RefCell::new(agent_3)));
+
+
+    let context = BTermBuilder::simple(WIDTH , HEIGHT).unwrap()
         .with_title("Collaborative Pathfinding (WHCA*)")
         .with_dimensions(256, 192)
         .build()?;
 
-    let gs = State::new(agents, world_map);
+    let gs = State::new(world_map, agents);
 
     main_loop(context, gs)
 }

@@ -1,20 +1,31 @@
+use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use priority_queue::priority_queue::PriorityQueue;
 use std::f32::consts::SQRT_2;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
+use std::rc::Rc;
 
 pub const WINDOW_SIZE: u32 = 16;
 
 type SpaceTimeMap = Vec<HashMap<(u32, u32), u32>>;
 
+pub type Agents = HashMap::<u32, Rc<RefCell<Agent>>>;
+
+
 #[derive(Default)]
 pub struct WorldMap {
+
     pub data: Vec<u32>,
     pub width: u32,
     pub height: u32,
-    space_time_map: SpaceTimeMap,
+
+    pub space_time_map: SpaceTimeMap,
+
+    pub agents: HashMap::<u32, Rc<RefCell<Agent>>>,
+
     pub log_file: HashMap<u32, Vec<String>>
 }
 
@@ -36,6 +47,10 @@ impl WorldMap {
 
     pub fn get_cost(&self, pos: (u32, u32)) -> u32 {
         self.data[(pos.1 * self.width + pos.0) as usize]
+    }
+
+    pub fn set_agent(&mut self, agent: Agent) {
+        self.agents.insert(agent.id, Rc::new(RefCell::new(agent)));
     }
 
     pub fn get_neighbors(&self, position: Node) -> Vec<(u32, u32)> {
@@ -131,7 +146,7 @@ impl From<(u32, u32, u32)> for Node {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Agent {
 
     pub came_from: HashMap<Node, Node>,
@@ -224,8 +239,42 @@ impl Agent {
         }
     }
 
+    fn process_neighbors(&mut self, current_pos: Node, next_best: Node, map: &WorldMap, time: u32) -> Node {
+
+        let mut best_neighbor = current_pos;
+
+        /* If this is the case, get availables neighbors,
+        if there is no match in the cost hashmap,
+        we reload the partial search to expand new nodes
+        */
+        for neighbor_pos in map.get_neighbors(current_pos) {
+            if neighbor_pos != next_best.pos {
+                if map.space_time_map[time as usize].get(&neighbor_pos).is_none() {
+                    let neighbor = match self.cost_so_far.get(&neighbor_pos) {
+                        None => {
+                            self.get_true_distance_heuristic(map,
+                                                             Node::from((neighbor_pos.0, neighbor_pos.1, map.get_cost(neighbor_pos))),
+                                                             self.goal
+                            );
+                            self.cost_so_far.get(&neighbor_pos).unwrap()
+                        }
+                        Some(node) => {
+                            node
+                        }
+                    };
+
+                    if neighbor.f_score <= current_pos.f_score && map.space_time_map[time as usize].get(&neighbor.pos).is_none() {
+                        best_neighbor = *neighbor;
+                    }
+                }
+            }
+        }
+        best_neighbor
+
+    }
+
     /* Will calculate the path depending of agents position in the space-time map */
-    pub fn set_portion_path(&mut self, map: &mut WorldMap) {
+    pub fn set_portion_path(&mut self, map: &mut WorldMap, agents: &Agents) {
 
         self.is_walking = true;
 
@@ -239,50 +288,33 @@ impl Agent {
                 self.portion_path.push(current);
                 map.space_time_map[i as usize].insert(current.pos, self.id);
                 self.is_walking = false;
-            }else {
+            } else {
                 next_best = self.came_from[&current];
-                println!("if agent {:?} at next pos {:?}", self.name, next_best.pos);
+                println!("if agent {:?} at next pos {:?}, at time {:?}", self.name, next_best.pos, i);
 
-                /* This Node is already occupied by another agent ? */
-                if (!map.space_time_map[i as usize].get(&next_best.pos).is_none()
-                    && map.space_time_map[i as usize].get(&next_best.pos).unwrap() != &self.id)
-                || (i > 0 && !map.space_time_map[(i - 1) as usize].get(&next_best.pos).is_none()){
+                /* This Node is already occupied by another agent ? (excepted current) */
+                if !map.space_time_map[i as usize].get(&next_best.pos).is_none() && map.space_time_map[i as usize].get(&next_best.pos).unwrap() != &self.id {
 
-                    let mut best_neighbor = current;
+                    let best_neighbor = self.process_neighbors(current, next_best, map, i);
 
-                    /* If this is the case, get availables neighbors,
-                    if there is no match in the cost hashmap,
-                    we reload the partial search to expand new nodes*/
-                    for neighbor_pos in map.get_neighbors(current) {
-                        if neighbor_pos != next_best.pos {
-                            if map.space_time_map[i as usize].get(&neighbor_pos).is_none() {
-                                let neighbor = match self.cost_so_far.get(&neighbor_pos) {
-                                    None => {
-                                        // println!("agent {:?} reloading heuristic for neighbor {:?}", self.name, neighbor_pos);
-                                        self.get_true_distance_heuristic(map,
-                                                                         Node::from((neighbor_pos.0, neighbor_pos.1, map.get_cost(neighbor_pos))),
-                                                                         self.goal
-                                        );
-                                        self.cost_so_far.get(&neighbor_pos).unwrap()
-                                    }
-                                    Some(node) => {
-                                        node
-                                    }
-                                };
-                                // println!("if neighbor.g_score <= current.f_score if  {:?} {:?} <= {:?} {:?}", neighbor.pos, neighbor.f_score, current.pos, current.f_score);
-
-                                if neighbor.f_score <= current.f_score && map.space_time_map[i as usize].get(&neighbor.pos).is_none() {
-                                    best_neighbor = *neighbor;
-                                }
-                            }
-                        }
-                    }
                     map.space_time_map[i as usize].insert(best_neighbor.pos, self.id);
+                    next_best = best_neighbor;
+                    current = next_best;
 
                     println!("agent {:?} had chosen {:?} neighbor as next node with cost {:?}", self.name, best_neighbor.pos, best_neighbor.f_score);
 
-                    next_best = best_neighbor;
-                    current = next_best;
+                /* Otherwise, we test if another agent get the risk to overlap current */
+                } else if i > 0 && !map.space_time_map[(i - 1) as usize].get(&next_best.pos).is_none()  {
+
+                    let other_agent = map.space_time_map[(i - 1) as usize].get(&next_best.pos).unwrap();
+
+                    if other_agent == map.space_time_map[i as usize].get(&current.pos).unwrap() {
+                        let best_neighbor = self.process_neighbors(current, next_best, map, i);
+
+                        map.space_time_map[i as usize].insert(best_neighbor.pos, self.id);
+                        next_best = best_neighbor;
+                        current = next_best;
+                    }
 
                 } else {
                     map.space_time_map[i as usize].insert(next_best.pos, self.id);
