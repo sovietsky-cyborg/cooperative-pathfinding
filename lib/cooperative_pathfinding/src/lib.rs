@@ -160,7 +160,7 @@ pub struct Agent {
     id: u32,
     pub name: String,
     start: Node,
-    goal: Node,
+    pub goal: Node,
     pub current_node: Node,
     previous_node: Node,
     next_node: Node,
@@ -278,53 +278,53 @@ impl Agent {
 
         self.is_walking = true;
 
-        let mut current = self.current_node;
         let mut next_best;
 
         for i in 0..WINDOW_SIZE {
 
-            /* If goal already found, stay in place */
-            if current == self.goal {
-                self.portion_path.push(current);
-                map.space_time_map[i as usize].insert(current.pos, self.id);
+            /* If goal already found, agent stay in place and block the tile*/
+            if self.current_node == self.goal {
+
+                self.portion_path.push(self.current_node);
+                map.space_time_map[i as usize].insert(self.current_node.pos, self.id);
                 self.is_walking = false;
+                map.data[(self.current_node.pos.1 * map.width + self.current_node.pos.0) as usize] = 100;
+
             } else {
-                next_best = self.came_from[&current];
-                println!("if agent {:?} at next pos {:?}, at time {:?}", self.name, next_best.pos, i);
+                next_best = self.came_from[&self.current_node];
+                // println!("if agent {:?} at next pos {:?}, at time {:?}", self.name, next_best.pos, i);
 
                 /* This Node is already occupied by another agent ? (excepted current) */
                 if !map.space_time_map[i as usize].get(&next_best.pos).is_none() && map.space_time_map[i as usize].get(&next_best.pos).unwrap() != &self.id {
 
-                    let best_neighbor = self.process_neighbors(current, next_best, map, i);
+                    let best_neighbor = self.process_neighbors(self.current_node, next_best, map, i);
 
                     map.space_time_map[i as usize].insert(best_neighbor.pos, self.id);
                     next_best = best_neighbor;
-                    current = next_best;
 
-                    println!("agent {:?} had chosen {:?} neighbor as next node with cost {:?}", self.name, best_neighbor.pos, best_neighbor.f_score);
+                    // println!("agent {:?} had chosen {:?} neighbor as next node with cost {:?}", self.name, best_neighbor.pos, best_neighbor.f_score);
 
                 /* Otherwise, we test if another agent get the risk to overlap current */
                 } else if i > 0 && !map.space_time_map[(i - 1) as usize].get(&next_best.pos).is_none()  {
 
                     let other_agent = map.space_time_map[(i - 1) as usize].get(&next_best.pos).unwrap();
+                    if !map.space_time_map[i as usize].get(&self.current_node.pos).is_none()
+                        && other_agent == map.space_time_map[i as usize].get(&self.current_node.pos).unwrap() {
 
-                    if other_agent == map.space_time_map[i as usize].get(&current.pos).unwrap() {
-                        let best_neighbor = self.process_neighbors(current, next_best, map, i);
+                        let best_neighbor = self.process_neighbors(self.current_node, next_best, map, i);
 
                         map.space_time_map[i as usize].insert(best_neighbor.pos, self.id);
                         next_best = best_neighbor;
-                        current = next_best;
                     }
 
                 } else {
                     map.space_time_map[i as usize].insert(next_best.pos, self.id);
-                    current = next_best;
                 }
 
                 self.portion_path.push(next_best);
                 self.current_node = next_best;
 
-                println!("agent {:?} choice at time {:?} is {:?}", self.name, i, self.current_node.pos);
+                // println!("agent {:?} choice at time {:?} is {:?}", self.name, i, self.current_node.pos);
             }
 
         }
@@ -390,6 +390,7 @@ impl Agent {
 
                         *self.cost_so_far.get_mut(&next.pos).unwrap() = next;
                         self.came_from.insert(next, current);
+
                         //Update priority queue with this new cost
                         self.open_set.push_decrease(next, Reverse(next.f_score));
 
@@ -399,7 +400,6 @@ impl Agent {
                     self.closed_set.insert(next, u32::MAX);
                 }
             }
-
 
             if goal.pos == current.pos {
                 break;
