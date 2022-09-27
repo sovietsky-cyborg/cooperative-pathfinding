@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 priority-queue = "1.0.5"
+libmath = "0.2.1"

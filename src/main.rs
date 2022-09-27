@@ -109,6 +109,7 @@ impl GameState for State {
         // We'll use batched drawing
         let mut draw_batch = DrawBatch::new();
         draw_batch.cls();
+
         match ctx.key {
             None => {}
             Some(key) => {
@@ -118,10 +119,10 @@ impl GameState for State {
 
                         let mut rc = &self.agents.get(&(i as u32)).unwrap();
                         let mut agent = &mut *rc.borrow_mut();
-                        // println!("agent {:?}", agent.name);
+                        println!("agent {:?}", agent.name);
 
                         if self.steps % WINDOW_SIZE == 0 && self.steps < WINDOW_SIZE{
-                            agent.get_true_distance_heuristic(&self.world_map, agent.get_start(), agent.get_goal());
+                            agent.get_true_distance_heuristic(&self.world_map, agent.get_start(), agent.get_goal(), &self.agents);
                             // println!("agent {:?} heuristic",  agent.name);
                             agent.print_heuristic(&self.world_map);
                             agent.set_portion_path(&mut self.world_map, &self.agents);
@@ -185,23 +186,6 @@ impl GameState for State {
             );
         }
 
-      /*  let mut block = TextBlock::new(HEIGHT, 0, 80, 25);
-        let mut buf = TextBuilder::empty();
-
-        for i in 0..self.steps {
-
-            let log_step = self.world_map.log_file.get(&i).unwrap();
-
-            for y in 0..log_step.len() {
-                buf.ln().line_wrap(&*log_step[y])
-                    .ln();
-            }
-        }
-        block.print(&buf).expect("Text was too long");
-
-        block.render_to_draw_batch(&mut draw_batch);
-*/
-
         // Submit the rendering
         draw_batch.submit(0).expect("Batch error");
         render_draw_buffer(ctx).expect("Render error");
@@ -216,7 +200,7 @@ fn main() -> BError {
 
     let mut agents = Agents::new();
 
-    let mut agent_1 = Agent::new(1, "a".into());
+/*    let mut agent_1 = Agent::new(1, "a".into());
     agent_1.set_start(Node {pos: (36, 20), g_score: 0, f_score: 0 });
     agent_1.set_goal(Node {pos: (38, 22), g_score: 0, f_score: 0 });
 
@@ -226,10 +210,10 @@ fn main() -> BError {
 
     let mut agent_3 = Agent::new(3, "c".into());
     agent_3.set_start(Node {pos: (33, 20), g_score: 0, f_score: 0 });
-    agent_3.set_goal(Node{ pos: (38, 24), g_score: u32::MAX, f_score: 0 });
+    agent_3.set_goal(Node{ pos: (38, 24), g_score: u32::MAX, f_score: 0 });*/
 
 
-/*    let mut agent_1 = Agent::new(1, "a".into());
+    let mut agent_1 = Agent::new(1, "a".into());
     agent_1.set_start(Node {pos: (1, 1), g_score: 0, f_score: 0 });
     agent_1.set_goal(Node {pos: (1, 8), g_score: 0, f_score: 0 });
 
@@ -239,7 +223,7 @@ fn main() -> BError {
 
     let mut agent_3 = Agent::new(3, "c".into());
     agent_3.set_start(Node {pos: (5, 1), g_score: 0, f_score: 0 });
-    agent_3.set_goal(Node{ pos: (0, 10), g_score: u32::MAX, f_score: 0 });*/
+    agent_3.set_goal(Node{ pos: (0, 10), g_score: u32::MAX, f_score: 0 });
 
 
     agents.insert(1, Rc::new(RefCell::new(agent_1)));
