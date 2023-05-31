@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "a_star_pathfinding",
+    "cooperative_pathfinding",
+]

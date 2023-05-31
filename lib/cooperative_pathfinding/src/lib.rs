@@ -8,6 +8,7 @@ use std::f32::consts::SQRT_2;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::rc::Rc;
+use std::thread::current;
 use math::round;
 
 pub const WINDOW_SIZE: u32 = 16;
@@ -179,7 +180,6 @@ impl Agent {
             id,
             name: name.into(),
             portion_path : Vec::with_capacity(WINDOW_SIZE as usize),
-            // is_walking: false,
             ..Default::default()
         }
     }
@@ -302,8 +302,15 @@ impl Agent {
 
                     let best_neighbor = self.process_neighbors(self.current_node, next_best, map, i, &agents);
 
-                    map.space_time_map[i as usize].insert(best_neighbor.pos, self.id);
-                    next_best = best_neighbor;
+                    /* if the new neighbor is more costly than current position, the agent will stop for one tick */
+                    if best_neighbor.f_score <= self.current_node.f_score {
+                        map.space_time_map[i as usize].insert(self.current_node.pos, self.id);
+                        next_best = self.current_node;
+                    }else{
+                        map.space_time_map[i as usize].insert(best_neighbor.pos, self.id);
+                        next_best = best_neighbor;
+                    }
+
 
                 /* Otherwise, we test if another agent get the risk to overlap current */
                 } else if i > 0 && !map.space_time_map[(i - 1) as usize].get(&next_best.pos).is_none()

@@ -13,3 +13,4 @@ bracket-pathfinding = "0.8.4"
 termion = "1.5"
 rand = "0.8"
 cooperative_pathfinding = { path = "lib/cooperative_pathfinding" }
+a_star_pathfinding = { path = "lib/a_star_pathfinding" }
